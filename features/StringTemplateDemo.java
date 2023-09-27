@@ -3,11 +3,10 @@ import java.util.Date;
 import static java.util.FormatProcessor.FMT;
 
 /**
+ * <a href="https://openjdk.org/jeps/430">JEP 430</a><br/>
  * 总览<br/>
  * 使用字符串模板增强Java编程语言。字符串模板通过将文本与嵌入表达式和模板处理器耦合来产生专门的结果，
- * 从而补充了Java现有的字符串文字和文本块。这是一个预览语言特性和API<br/><br/>
- * <p>
- * <p>
+ * 从而补充了Java现有的字符串文字和文本块。这是一个预览语言特性和API<br/>
  * <br/>目标
  * <br/>简化Java程序的编写，使其易于表达包含在运行时计算的值的字符串。
  * <br/>增强混合文本和表达式的表达式的可读性，无论文本是适合于单个源行(如字符串字面值)还是跨越多个源行(如文本块)。
