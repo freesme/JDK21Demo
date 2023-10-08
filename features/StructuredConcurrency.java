@@ -1,3 +1,6 @@
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.time.Instant;
 import java.util.List;
 import java.util.Random;
@@ -52,7 +55,6 @@ public class StructuredConcurrency {
         }
         return i;
     }
-
 
 
     /**
@@ -113,6 +115,37 @@ public class StructuredConcurrency {
             }
         };
     }
+
+    /**
+     * 通过自定义策略，只收集成功完成的子任务
+     */
+    <T> List<T> allSuccessful(List<Callable<T>> tasks) throws InterruptedException {
+        try (var scope = new MyScope<T>()) {
+            for (var task : tasks) scope.fork(task);
+            return scope.join().results().toList();
+        }
+    }
+
+    // 下面是一个服务器的示例，它派生子任务来处理 a 内的传入连接StructuredTaskScope：
+    void serve(ServerSocket serverSocket) throws IOException, InterruptedException {
+        try (var scope = new StructuredTaskScope<Void>()) {
+            try {
+                while (true) {
+                    scope.fork(() -> socketHandler(serverSocket.accept()));
+                }
+            } finally {
+                // If there's been an error or we're interrupted, we stop accepting
+                scope.shutdown();  // Close all active connections
+                scope.join();
+            }
+        }
+    }
+
+    private Void socketHandler(Socket socket) {
+        return null;
+    }
+
+
 }
 
 record Resp(String user, Integer orderCount) {
