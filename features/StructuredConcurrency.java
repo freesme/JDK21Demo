@@ -1,5 +1,12 @@
+import java.time.Instant;
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
 /**
@@ -45,8 +52,68 @@ public class StructuredConcurrency {
         }
         return i;
     }
-}
 
+
+
+    /**
+     * StructuredTaskScope失败时关闭策略
+     * 同时运行一组任务，如果其中任何一个失败，则失败
+     */
+    <T> List<T> runAll(List<Callable<T>> tasks)
+            throws InterruptedException, ExecutionException {
+        try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
+            List<? extends Supplier<T>> suppliers = tasks.stream().map(scope::fork).toList();
+            scope.join().throwIfFailed();  // Propagate exception if any subtask fails
+            // 在这里，所有任务都成功了，处理它们的结果
+            return suppliers.stream().map(Supplier::get).toList();
+        }
+    }
+
+    /**
+     * StructuredTaskScope成功关闭策略，返回第一个成功子任务的结果
+     * 一旦一个子任务成功，该范围就会自动关闭，取消未完成的子任务。
+     * 如果所有子任务都失败或者给定的截止日期已过，则任务将失败。例如，此模式在需要来自任何一个冗余服务集合的结果的服务器应用程序中非常有用。
+     */
+    <T> T race(List<Callable<T>> tasks, Instant deadline)
+            throws InterruptedException, ExecutionException, TimeoutException {
+        try (var scope = new StructuredTaskScope.ShutdownOnSuccess<T>()) {
+            for (var task : tasks) {
+                scope.fork(task);
+            }
+            return scope.joinUntil(deadline)
+                    .result();  // Throws if none of the subtasks completed successfully
+        }
+    }
+
+
+    /**
+     * 处理结果
+     */
+    <T> List<Future<T>> executeAll(List<Callable<T>> tasks)
+            throws InterruptedException {
+        try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
+            List<? extends Supplier<Future<T>>> futures = tasks.stream()
+                    .map(StructuredConcurrency::asFuture)
+                    .map(scope::fork)
+                    .toList();
+            scope.join();
+            return futures.stream().map(Supplier::get).toList();
+        }
+    }
+
+    /**
+     * 并行运行任务列表并返回已完成的列表，Future其中包含每个任务各自的成功或异常结果
+     */
+    static <T> Callable<Future<T>> asFuture(Callable<T> task) {
+        return () -> {
+            try {
+                return CompletableFuture.completedFuture(task.call());
+            } catch (Exception ex) {
+                return CompletableFuture.failedFuture(ex);
+            }
+        };
+    }
+}
 
 record Resp(String user, Integer orderCount) {
     @Override
@@ -54,3 +121,6 @@ record Resp(String user, Integer orderCount) {
         return STR. "Customer: \{ user }, Order: \{ orderCount }" ;
     }
 }
+
+
+
