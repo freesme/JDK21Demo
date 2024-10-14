@@ -24,14 +24,18 @@ public class VirtualThreads {
     }
 
     public static void main(String[] args) throws InterruptedException {
-//        withExecutors();
+        withExecutors();
         Runnable runnable = () -> {
             System.out.println("===== v1 start =====");
             System.out.println("===  Hello world ===");
             System.out.println("====  v1 end   ====");
         };
 
-        Thread thread = Thread.startVirtualThread(runnable);
+        Thread thread = Thread.startVirtualThread(runnable = () -> {
+            System.out.println("===== v1 start =====");
+            System.out.println("===  Hello world ===");
+            System.out.println("====  v1 end   ====");
+        });
         Thread virtual = Thread.ofVirtual().name("v1").unstarted(runnable);
         System.out.println(virtual.isVirtual());
         System.out.println(virtual.isAlive());
@@ -42,7 +46,7 @@ public class VirtualThreads {
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             IntStream.range(0, 10_000).forEach(i -> {
                 executor.submit(() -> {
-                    System.out.println(System.currentTimeMillis() + "---" + i);
+                    System.out.println(STR."\{System.currentTimeMillis()}---\{i}");
 //                    Thread.sleep(Duration.ofSeconds(1));
                     return i;
                 });
